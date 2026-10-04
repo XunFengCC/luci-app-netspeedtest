@@ -25,7 +25,7 @@ define Package/netspeed-engine
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Bounded LibreSpeed measurement engine
-  URL:=https://github.com/XunFengCC/luci-app-netspeed-test
+  URL:=https://github.com/XunFengCC/luci-app-netspeedtest
   DEPENDS:=$(GO_ARCH_DEPENDS)
 endef
 
@@ -34,7 +34,7 @@ define Package/luci-app-netspeed
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=One-click speed test
-  URL:=https://github.com/XunFengCC/luci-app-netspeed-test
+  URL:=https://github.com/XunFengCC/luci-app-netspeedtest
   DEPENDS:=+netspeed-engine +luci-base +luci-compat +luci-lib-jsonc +luci-lib-nixio +lua +firewall4 +nftables-json
   PKGARCH:=all
 endef

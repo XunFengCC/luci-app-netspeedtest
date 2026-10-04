@@ -1,4 +1,6 @@
-# NetSpeed Test · 网速测试
+# NetSpeedTest · 网速测试
+
+**简体中文** | [English](README.en.md)
 
 OpenWrt / ImmortalWrt 的 LuCI 测速插件：下载、上传、实时曲线、延迟、抖动、自动或手动选择测速服务器，以及最近 30 次历史记录。
 
@@ -6,17 +8,93 @@ OpenWrt / ImmortalWrt 的 LuCI 测速插件：下载、上传、实时曲线、�
 
 ## 安装与适用版本
 
-安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeed-test/releases)。选择与你的 **OpenWrt 版本、CPU 软件包架构**一致的包。OpenWrt 25.12 使用 APK，24.10 使用 IPK；不能混用。尚未进入 OpenWrt 官方软件源。
+安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeedtest/releases)。当前正式版为 **0.1.0**，软件包版本为 **0.1.0-r3**。尚未进入 OpenWrt 官方软件源。
 
 首次公开版本提供 ARM64 / `aarch64_cortex-a53` / OpenWrt 25.12 系列的 APK，以现代 LuCI / fw4 为目标。已实测 Cudy TR3000、ImmortalWrt 25.12；纯 OpenWrt 尚无实机验收，其他架构和 24.10 IPK 尚未发行。旧 fw3/iptables 不支持。
 
-三个软件包分别是：
+先在路由器 SSH 中查看版本与架构：
 
-- `netspeed-engine`：静态 LibreSpeed 测量核心。
-- `luci-app-netspeed`：界面、直连任务控制及历史。需要 Lua 的 LuCI 兼容模块和 nftables。
-- `netspeed-openclash`：可选的 OpenClash 发现与测速集成，需要 curl、Ruby/YAML，以及已经安装并运行的 OpenClash/Mihomo；本项目不分发 Mihomo。
+```sh
+cat /etc/openwrt_release
+cat /etc/apk/arch
+```
 
-下载同一发行版、同一架构的前两个包，在 LuCI 软件包管理页面上传安装，或按 [安装说明](docs/installation.md) 使用 SSH。需要代理功能时再安装第三个包。
+当前安装包要求 25.12 系列、`aarch64_cortex-a53`、现代 LuCI / fw4。`apk --print-arch` 显示工具自身的编译架构，不等同于 `/etc/apk/arch`。24.10 使用 IPK，不能安装本次 APK。
+
+### 下载哪些文件
+
+| 文件 | 用途 |
+| --- | --- |
+| `netspeed-engine-0.1.0-r3.apk` | 必需，静态 LibreSpeed 测量引擎 |
+| `luci-app-netspeed-0.1.0-r3.apk` | 必需，界面、直连控制和历史 |
+| `netspeed-openclash-0.1.0-r3.apk` | 可选，检测并测试 OpenClash 代理节点 |
+| `SHA256SUMS` | 安装包校验值 |
+
+依赖由路由器当前软件源提供。直连包需要 Lua 的 LuCI 兼容模块与 nftables；代理集成另需 curl、Ruby/YAML，以及已经运行的 OpenClash/Mihomo。本项目不分发 Mihomo。
+
+### 从 LuCI 安装
+
+1. 在 Release 下载前两个 APK，核对 `SHA256SUMS` 中对应文件的校验值。
+2. 打开路由器 LuCI 的「系统 → 软件包」，更新软件源列表。
+3. 上传并安装 `netspeed-engine`，再安装 `luci-app-netspeed`。
+4. 需要代理测速时，再上传并安装 `netspeed-openclash`。
+5. 刷新 LuCI，打开「网络 → 一键测速」。如果固件的上传界面不能安装本地未签名 APK，使用下面的 SSH 方法。
+
+### 从 SSH 安装
+
+将下载的 APK 上传到路由器 `/tmp/`，核对文件校验值后执行：
+
+```sh
+apk update
+apk add --allow-untrusted /tmp/netspeed-engine-0.1.0-r3.apk /tmp/luci-app-netspeed-0.1.0-r3.apk
+```
+
+需要代理测速时再执行：
+
+```sh
+apk add --allow-untrusted /tmp/netspeed-openclash-0.1.0-r3.apk
+```
+
+GitHub 发行包没有官方 OpenWrt 软件源签名；`--allow-untrusted` 仅用于已经下载并校验的本地包，无需设置为全局选项。安装不会重启网络或 OpenClash，首次安装会刷新 LuCI 执行权限。
+
+## 使用
+
+1. 打开「网络 → 一键测速」。默认是「直连」和「自动选择节点」。
+2. 点击「开始测速」，等待延迟、下载和上传依次完成；测速中可以停止。
+3. 查看下载/上传 Mbps、延迟与抖动 ms，以及两条速度曲线。成功结果自动保存到历史，失败和停止不保存部分结果。
+4. 要测试指定地区，打开「测速节点」菜单，选择一个带国旗、国家、城市和提供者名称的服务器。两个分组按当前直连探测结果划分，所有目录节点都可手动选择。
+5. 要测试代理，先安装可选集成，然后在「连接方式」选择自动检测到的 OpenClash 物理节点，再选择测速服务器并开始。节点来自**路由器本机**，访问页面的电脑不需要安装 Clash；测速不改变日常代理选择。
+
+历史保留最近 30 次成功结果，点击记录可查看详情；「清除历史记录」会在确认后删除记录。界面跟随 LuCI 语言，支持简中、繁中和英文。
+
+### 添加自定义测速节点
+
+在测速节点菜单选择「添加自定义节点」，填写名称、两位国家代码（如 `CN`、`US`）、HTTP/HTTPS 服务根地址和三个相对接口路径。服务必须兼容 LibreSpeed：下载返回二进制载荷，上传接收请求正文并返回成功空响应，延迟接口返回成功空响应。
+
+| 字段 | 示例 |
+| --- | --- |
+| 名称 | 我的测速服务器 |
+| 国家代码 | `US` |
+| 服务地址 | `https://speed.example.net/` |
+| 下载接口 | `backend/garbage.php` |
+| 上传接口 | `backend/empty.php` |
+| 延迟接口 | `backend/empty.php` |
+
+示例域名仅展示格式，请填你的实际服务地址。接口位于根目录时可改成 `garbage.php`、`empty.php`；地址不得包含账号密码或 fragment，接口填写相对路径。最多保存 20 个自定义节点。
+
+### 升级和卸载
+
+先停止测速，再用相同方式安装匹配发行版/架构的新 APK。测速期间软件包会拒绝替换，避免正在运行的任务被打断。
+
+卸载命令：
+
+```sh
+apk del netspeed-openclash luci-app-netspeed netspeed-engine
+```
+
+只安装直连包时省略 `netspeed-openclash`。卸载会停止任务并清理本插件的临时规则；历史和自定义节点保留在 `/etc/netspeed`，重装后仍可使用。
+
+部分带 `dialer-proxy` 等依赖链的代理，以及尚未下载本地 provider 配置的节点，当前版本可能无法测试。缺少可选集成或没有可用物理节点时，连接方式只显示直连。
 
 ## 节点与测量
 
