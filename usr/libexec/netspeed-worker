@@ -1,0 +1,115 @@
+#!/bin/sh
+# Transient UID-scoped bypass: no selector edits or OpenClash restart.
+ROOT=/tmp/netspeed
+ENGINE=/usr/bin/netspeed-engine
+export GOMEMLIMIT=48MiB GOGC=50
+echo $$ > "$ROOT/pid"
+child=
+watchdog=
+cleanup() {
+  [ -z "$child" ] || kill "$child" 2>/dev/null
+  [ -z "$watchdog" ] || kill "$watchdog" 2>/dev/null
+  /usr/libexec/netspeed-proxy stop 2>/dev/null
+  {
+    nft -a list chain inet fw4 nat_output 2>/dev/null | grep 'netspeed-direct'
+    nft -a list chain inet fw4 mangle_output 2>/dev/null | grep 'netspeed-direct'
+  } > "$ROOT/direct-proof.tmp"
+  [ ! -s "$ROOT/direct-proof.tmp" ] || mv "$ROOT/direct-proof.tmp" "$ROOT/direct-proof"
+  for chain in nat_output mangle_output; do
+    nft -a list chain inet fw4 "$chain" 2>/dev/null | sed -n '/comment "netspeed-direct"/s/.*# handle \([0-9]*\).*/\1/p' | while read -r handle; do
+      nft delete rule inet fw4 "$chain" handle "$handle" 2>/dev/null
+    done
+  done
+  rm -f "$ROOT/pid" "$ROOT/watchdog-pid"
+  # If deletion genuinely failed, retain a reclaimable lock rather than leave
+  # an unowned bypass behind with an apparently idle controller.
+  if nft list chain inet fw4 nat_output 2>/dev/null | grep -q 'netspeed-direct' || nft list chain inet fw4 mangle_output 2>/dev/null | grep -q 'netspeed-direct'; then
+    echo failed > "$ROOT/status"
+  else
+    rmdir "$ROOT/lock" 2>/dev/null
+  fi
+}
+stop() { echo stopped > "$ROOT/status"; cleanup; exit 0; }
+expired() { echo failed > "$ROOT/status"; echo '{"type":"error","message":"测速超时，请换一个节点重试"}' >> "$ROOT/events"; cleanup; exit 1; }
+trap stop TERM INT
+trap expired USR1
+trap cleanup EXIT
+# The numeric UID isolates nft output rules. It must not grant an unrelated
+# account/process a direct bypass on a different router. Fail before installing
+# rules; no persistent passwd allocation or global firewall change is needed.
+if awk -F: '$3 == 65533 { found=1 } END { exit !found }' /etc/passwd; then
+  echo failed > "$ROOT/status"
+  echo '{"type":"error","message":"测速隔离用户编号已被其他服务使用"}' >> "$ROOT/events"
+  exit 1
+fi
+for status in /proc/[0-9]*/status; do
+  if grep -q '^Uid:[[:space:]]*65533[[:space:]]' "$status" 2>/dev/null; then
+    echo failed > "$ROOT/status"
+    echo '{"type":"error","message":"测速隔离用户编号已被其他服务使用"}' >> "$ROOT/events"
+    exit 1
+  fi
+done
+for chain in nat_output mangle_output; do
+  if ! nft insert rule inet fw4 "$chain" meta skuid 65533 counter return comment '"netspeed-direct"'; then
+    echo failed > "$ROOT/status"
+    echo '{"type":"error","message":"无法建立测速直连路径"}' >> "$ROOT/events"
+    exit 1
+  fi
+done
+if [ "$1" = servers ]; then
+  outfile="$ROOT/servers.tmp"
+  "$ENGINE" --uid 65533 --dns 223.5.5.5:53 servers > "$outfile" 2> "$ROOT/engine.log" &
+else
+  echo running > "$ROOT/status"
+  if [ "$3" = proxy ]; then
+    if ! /usr/libexec/netspeed-proxy start "$4" 2> "$ROOT/proxy-error"; then
+      echo failed > "$ROOT/status"
+      echo '{"type":"error","message":"无法启动所选测速代理"}' >> "$ROOT/events"
+      exit 1
+    fi
+    "$ENGINE" --uid 65533 --dns 223.5.5.5:53 --http-proxy 127.0.0.1:17997 --proxy-name "$4" run "$2" >> "$ROOT/events" 2> "$ROOT/engine.log" &
+  else
+    "$ENGINE" --uid 65533 --dns 223.5.5.5:53 run "$2" >> "$ROOT/events" 2> "$ROOT/engine.log" &
+  fi
+fi
+child=$!
+# Bound discovery/network stalls even if the engine loses its own context.
+(
+  trap 'kill "$timer" 2>/dev/null; exit 0' TERM INT
+  sleep 150 &
+  timer=$!
+  wait "$timer"
+  kill -USR1 "$$" 2>/dev/null
+) &
+watchdog=$!
+echo "$watchdog" > "$ROOT/watchdog-pid"
+wait "$child"
+rc=$?
+child=
+if [ "$rc" -eq 0 ]; then
+  for chain in nat_output mangle_output; do
+    if ! nft list chain inet fw4 "$chain" | grep -q 'netspeed-direct'; then
+      echo failed > "$ROOT/status"
+      echo '{"type":"error","message":"测速期间网络规则发生变化，请重新测速"}' >> "$ROOT/events"
+      exit 1
+    fi
+  done
+  if [ "$1" = servers ]; then
+    mv "$outfile" "$ROOT/servers.json"
+    echo ready > "$ROOT/status"
+  else
+    if ! /usr/libexec/netspeed finish >/dev/null; then
+      echo failed > "$ROOT/status"
+      echo '{"type":"error","message":"测速结果不完整，请重新测速"}' >> "$ROOT/events"
+      exit 1
+    fi
+    echo complete > "$ROOT/status"
+  fi
+else
+  echo failed > "$ROOT/status"
+  # Keep a provider's specific failure actionable; a generic last event would
+  # otherwise hide its timeout, status or verification error in the LuCI view.
+  if ! grep -q '"type":"error"' "$ROOT/events" 2>/dev/null; then
+    echo '{"type":"error","message":"测速未完成，请稍后重试"}' >> "$ROOT/events"
+  fi
+fi

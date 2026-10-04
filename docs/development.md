@@ -1,0 +1,23 @@
+# 开发与 OpenWrt 收录
+
+```sh
+cd engine
+go test -mod=vendor ./...
+go test -mod=vendor -race ./...
+go vet -mod=vendor ./...
+GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -mod=vendor -trimpath -ldflags='-s -w' -o ../build/netspeed-engine .
+```
+
+Go 1.26+。改变 `vendor/defs` 适配必须更新 NOTICE 和测量测试；禁止在 CI 对公共节点做饱和测试。
+
+`openwrt/Makefile` 是本仓库 SDK/feed 配方，用同一源码生成引擎、LuCI 和可选代理包。可作为本地 package 目录连接到 SDK。标准 Go host 编译依赖通过 OpenWrt feeds 提供；发布构建也可给定 `NETSPEED_PREBUILT_ENGINE`，先由固定 Go 工具链从本次源码编译，然后由 SDK 打包，不能替换为未知来源二进制。
+
+## 官方软件源流程
+
+OpenWrt 用户在 LuCI 的软件包管理页面看到的是其配置软件源，不是统一审核制应用商店。独立 GitHub Releases 不会自动进入官方源。
+
+官方收录通常需要向 [openwrt/packages](https://github.com/openwrt/packages) 提交后端配方，向 [openwrt/luci](https://github.com/openwrt/luci) 提交 LuCI 应用；通过维护者审核后进入相应 feed。遵循 [packages CONTRIBUTING](https://github.com/openwrt/packages/blob/master/CONTRIBUTING.md) 与 [OpenWrt 创建软件包文档](https://openwrt.org/docs/guide-developer/packages)。
+
+当前先发行独立测试版，不宣称官方收录。上游提交前还需要：固定发行源码 URL/校验值、用官方 Go host toolchain 完整构建、核对 LuCI 国际化惯例和后端接口、验证纯 OpenWrt 实机安装升级卸载、确认 maintainer 和签署者信息。OpenClash 不是官方源依赖，因此可选集成不得成为直连包的强制依赖。
+
+开源仓库是工程正本；私人的部署工具、网络诊断和恢复包在发布仓库之外维护。

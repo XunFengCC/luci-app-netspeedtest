@@ -1,0 +1,62 @@
+#!/usr/bin/ruby
+# A one-node temporary process avoids ApplyConfig's provider/DNS refresh in
+# the live core. No GeoSite, ruleset, subscription or persistent listener.
+require 'yaml'
+root='/tmp/netspeed'
+dir=root+'/proxy'
+if ARGV[0]=='stop'
+  begin
+    pid=Integer(File.read(root+'/proxy-pid'))
+    status=File.read("/proc/#{pid}/status")
+    cmd=File.read("/proc/#{pid}/cmdline")
+    if status.match?(/Uid:\s+65533\s/) && cmd.include?(dir+'/config.yaml')
+      Process.kill('TERM',pid)
+      20.times do
+        break unless File.exist?("/proc/#{pid}")
+        sleep 0.05
+      end
+      Process.kill('KILL',pid) if File.exist?("/proc/#{pid}")
+    end
+  rescue Errno::ENOENT,ArgumentError,Errno::ESRCH
+  end
+  File.unlink(root+'/proxy-pid') if File.exist?(root+'/proxy-pid')
+  system('rm','-rf',dir)
+  exit
+end
+abort '无效操作' unless ARGV[0]=='start'
+name=ARGV[1]
+config_path=`uci -q get openclash.config.config_path`.strip
+config=YAML.load_file(config_path)
+nodes=config['proxies'] || []
+(config['proxy-providers'] || {}).each_value do |p|
+  path=p['path']; next unless path
+  path=File.expand_path(path,'/etc/openclash') unless path.start_with?('/')
+  next unless File.file?(path)
+  nodes.concat(YAML.load_file(path)['proxies'] || [])
+end
+node=nodes.find{|p|p['name']==name}
+abort '所选代理节点已不存在' unless node
+Dir.mkdir(dir,0700) unless Dir.exist?(dir)
+File.chown(65533,65533,dir)
+# Binding conflict is an explicit failure, never replace an existing owner.
+abort '测速端口已被占用' if system('sh','-c',"netstat -lnt 2>/dev/null | grep -q '127.0.0.1:17997 '")
+# Use a fixed one-member group so punctuation in a user's node name cannot be
+# mistaken for rule delimiters. This selector belongs only to this process.
+group='__netspeed_selected__';group+='_' while group==name
+minimal={'mixed-port'=>17997,'bind-address'=>'127.0.0.1','allow-lan'=>false,'mode'=>'rule','log-level'=>'silent','ipv6'=>true,'dns'=>{'enable'=>false},'proxies'=>[node],'proxy-groups'=>[{'name'=>group,'type'=>'select','proxies'=>[name]}],'rules'=>["MATCH,#{group}"],'profile'=>{'store-selected'=>false,'store-fake-ip'=>false}}
+path=dir+'/config.yaml'
+File.open(path,'w',0600){|f|f.write(minimal.to_yaml)}
+File.chown(65533,65533,path)
+log=File.open(root+'/proxy.log','w',0600)
+pid=Process.spawn('/etc/openclash/core/clash_meta','-d',dir,'-f',path,uid:65533,gid:65533,in:File::NULL,out:log,err:log)
+File.write(root+'/proxy-pid',pid.to_s)
+30.times do
+  begin
+    exit if system('sh','-c',"netstat -lnt 2>/dev/null | grep -q '127.0.0.1:17997 '")
+    Process.kill(0,pid)
+  rescue Errno::ESRCH
+    abort '测速代理未能运行'
+  end
+  sleep 0.1
+end
+abort '测速代理启动失败'

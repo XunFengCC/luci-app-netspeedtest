@@ -1,0 +1,34 @@
+This engine includes and locally modifies the following third-party library:
+
+  github.com/librespeed/speedtest-cli v1.0.14
+  Upstream tag: v1.0.14
+  Upstream commit: 42e5f76c90e64e04ab7079fd76d833dfe41805da
+  Source: https://github.com/librespeed/speedtest-cli/tree/v1.0.14
+  License: GNU Lesser General Public License v3
+
+The full upstream license and incorporated GPL terms are included as
+LGPL-3.0.txt and GPL-3.0.txt. The unmodified vendored upstream LICENSE is
+retained at vendor/github.com/librespeed/speedtest-cli/LICENSE. Other vendored
+dependencies retain their upstream license files under vendor/.
+
+Local fork changes are limited to vendor/github.com/librespeed/speedtest-cli/defs:
+
+  adapter.go       Context-aware transfer adapter, 500 ms progress callbacks,
+                   HTTP response validation, shared byte budget, and upload
+                   accounting only after successful full-body consumption.
+  bytes_counter.go Public atomic byte commit used for confirmed uploads.
+  server.go       Per-run HTTP client/referer injection and a cancellable HTTP
+                   ping method with HTTP status/body validation.
+
+These changes exist because the CLI worker requires cancellation, cookie-jar
+and direct-DNS transport injection, bounded traffic, observable real progress,
+and successful application-level HTTP confirmation. The repeated parallel
+request model and average-rate counter remain from the upstream LibreSpeed
+implementation. Local changes and the upstream source are available in this
+source tree. Re-generating vendor from go.mod replaces the fork; reapply and
+retest these narrowly scoped changes if upgrading.
+
+The engine application is linked with the modified LGPL library. Build it with
+`go build -mod=vendor`; the corresponding source is the complete `engine/`
+directory. Keep that source, LGPL-3.0.txt, GPL-3.0.txt, this notice and the
+relink permissions/terms with any binary distribution.

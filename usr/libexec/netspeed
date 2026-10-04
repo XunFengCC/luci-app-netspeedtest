@@ -1,0 +1,181 @@
+#!/usr/bin/lua
+-- Fixed actions and validated IDs/proxy names/custom JSON; no shell text.
+local fs = require 'nixio.fs'
+local json = require 'luci.jsonc'
+local sys = require 'luci.sys'
+local root = '/tmp/netspeed'
+local history = '/etc/netspeed/history'
+local function emit(v) io.write(json.stringify(v), '\n') end
+local function events(path)
+  local out = {}
+  local raw = fs.readfile(path) or ''
+  if #raw > 262144 then raw = raw:sub(-262144) end
+  for line in raw:gmatch('[^\n]+') do
+    local e = json.parse(line)
+    if type(e) == 'table' then out[#out+1] = e end
+  end
+  return out
+end
+local function running()
+  local pid = tonumber((fs.readfile(root..'/pid') or ''))
+  return pid and fs.access('/proc/'..pid) and
+    (fs.readfile('/proc/'..pid..'/cmdline') or ''):find('netspeed-worker',1,true) ~= nil
+end
+local function shellquote(s) return "'"..s:gsub("'","'\\''").."'" end
+local function proxy_routes()
+  if not fs.access('/usr/libexec/netspeed-openclash', 'x') then return {available=false,nodes={}} end
+  return json.parse(sys.exec('/usr/libexec/netspeed-openclash routes') or '') or {available=false,nodes={}}
+end
+fs.mkdir(root)
+-- A hard-killed request must not leave a permanent lock. Preserve the short
+-- launch window, then reclaim only an old lock without its owned worker.
+local lockstat=fs.stat(root..'/lock')
+if lockstat and not running() and os.time()-(lockstat.mtime or 0)>160 then
+  sys.call('/usr/libexec/netspeed-proxy stop 2>/dev/null')
+  -- SIGKILL bypasses shell traps. Reclaim orphaned engines only when both the
+  -- reserved UID and our exact executable match; never kill by basename alone.
+  for name in fs.dir('/proc') do
+    if name:match('^%d+$') then
+      local status=fs.readfile('/proc/'..name..'/status') or ''
+      local command=fs.readfile('/proc/'..name..'/cmdline') or ''
+      if status:match('Uid:%s+65533%s') and command:match('^/usr/bin/netspeed%-engine%z') then
+        sys.call('kill -KILL '..name)
+      end
+    end
+  end
+  local watchdog=tonumber((fs.readfile(root..'/watchdog-pid') or ''))
+  if watchdog and (fs.readfile('/proc/'..watchdog..'/cmdline') or ''):find('netspeed-worker',1,true) then
+    sys.call('kill -TERM '..watchdog)
+  end
+  sys.call([[for chain in nat_output mangle_output; do
+    nft -a list chain inet fw4 "$chain" 2>/dev/null | sed -n '/comment "netspeed-direct"/s/.*# handle \([0-9]*\).*/\1/p' | while read handle; do
+      nft delete rule inet fw4 "$chain" handle "$handle" 2>/dev/null
+    done
+  done]])
+  -- Match worker cleanup: an actual deletion failure must remain owned by
+  -- the stale lock so the next helper access retries cleanup, not launch.
+  local rules_remain = sys.call([[nft list chain inet fw4 nat_output 2>/dev/null | grep -q 'netspeed-direct' || nft list chain inet fw4 mangle_output 2>/dev/null | grep -q 'netspeed-direct']]) == 0
+  if not rules_remain then fs.rmdir(root..'/lock') end
+  fs.unlink(root..'/pid')
+  fs.unlink(root..'/watchdog-pid')
+  fs.writefile(root..'/status','failed')
+end
+local cmd = arg[1]
+if cmd == 'start' then
+  local id = arg[2] or 'auto'
+  if id ~= 'auto' and (not id:match('^%d+$') or #id > 10) then emit({error='无效节点'}); os.exit(1) end
+  local mode=arg[3] or 'direct'
+  local proxy=arg[4]
+  if mode~='direct' and mode~='proxy' then emit({error='无效连接方式'});os.exit(1) end
+  if mode=='proxy' then
+    local found=false
+    for _,node in ipairs(proxy_routes().nodes or {}) do if node.name==proxy then found=true end end
+    if not found then emit({error='OpenClash节点不可用，请刷新后重试'});os.exit(1) end
+  end
+  if running() then emit({error='测速正在进行'}); os.exit(0) end
+  -- mkdir is the shared start/discovery lock; duplicate requests cannot launch two engines.
+  if not fs.mkdir(root..'/lock') then emit({error='任务正在准备，请稍后重试'}); os.exit(0) end
+  fs.writefile(root..'/events', '')
+  fs.writefile(root..'/connection.json',json.stringify({connection_mode=mode,proxy_name=mode=='proxy' and proxy or nil}))
+  fs.writefile(root..'/status', 'starting')
+  sys.call('/usr/libexec/netspeed-worker run '..id..' '..mode..' '..shellquote(proxy or '')..' >/tmp/netspeed/worker.log 2>&1 &')
+  emit({ok=true})
+elseif cmd == 'stop' then
+  if running() then sys.call('kill -TERM '..tonumber((fs.readfile(root..'/pid') or ''))) end
+  emit({ok=true})
+elseif cmd == 'servers' then
+  if arg[2]=='refresh' and not running() then fs.unlink(root..'/servers.json') end
+  local cached = json.parse(fs.readfile(root..'/servers.json') or '')
+  if cached then emit({servers=cached}); os.exit(0) end
+  if fs.mkdir(root..'/lock') then
+    fs.writefile(root..'/events','')
+    fs.writefile(root..'/status','discovering')
+    sys.call('/usr/libexec/netspeed-worker servers >/tmp/netspeed/worker.log 2>&1 &')
+  end
+  emit({pending=true})
+elseif cmd == 'routes' then
+  emit(proxy_routes())
+elseif cmd == 'custom-add' then
+  if running() or fs.stat(root..'/lock') then emit({error='请在测速结束后添加节点'});os.exit(0) end
+  local p=json.parse(arg[2] or '')
+  if type(p)~='table' or type(p.name)~='string' or #p.name==0 or #p.name>80 or
+    type(p.base_url)~='string' or #p.base_url>2048 or not p.base_url:match('^https?://[^/]+') or p.base_url:find('[@%s]') then
+    emit({error='请输入名称及不含账号密码的 HTTP/HTTPS 地址'});os.exit(1)
+  end
+  for _,key in ipairs({'download_url','upload_url','ping_url'}) do
+    if type(p[key])~='string' or #p[key]==0 or #p[key]>512 or p[key]:find('[\r\n]') or p[key]:find('://',1,true) or p[key]:sub(1,2)=='//' then emit({error='接口需填写相对路径'});os.exit(1) end
+  end
+  -- Serialize read/validate/replace with start and discovery as well as other
+  -- custom writers; atomic rename alone does not prevent lost updates.
+  if not fs.mkdir(root..'/lock') then emit({error='任务正在准备，请稍后重试'});os.exit(1) end
+  local rows=json.parse(fs.readfile('/etc/netspeed/custom.json') or '[]') or {}
+  if #rows>=20 then fs.rmdir(root..'/lock');emit({error='最多20个自定义节点'});os.exit(1) end
+  local id=os.time()
+  for _,row in ipairs(rows) do if tonumber(row.id) and tonumber(row.id)>=id then id=tonumber(row.id)+1 end end
+  p.id=tostring(id);rows[#rows+1]=p
+  fs.mkdir('/etc/netspeed')
+  if not fs.writefile('/etc/netspeed/custom.tmp',json.stringify(rows)) then
+    fs.rmdir(root..'/lock');emit({error='保存自定义节点失败'});os.exit(1)
+  end
+  -- Validate with the same URL parser as the engine before replacing good data.
+  if sys.call('/usr/bin/netspeed-engine --custom-file /etc/netspeed/custom.tmp validate-custom >/dev/null 2>&1')~=0 then
+    fs.unlink('/etc/netspeed/custom.tmp');fs.rmdir(root..'/lock');emit({error='自定义节点地址或接口路径无效'});os.exit(1)
+  end
+  if not fs.rename('/etc/netspeed/custom.tmp','/etc/netspeed/custom.json') then
+    fs.unlink('/etc/netspeed/custom.tmp');fs.rmdir(root..'/lock');emit({error='保存自定义节点失败'});os.exit(1)
+  end
+  fs.unlink(root..'/servers.json');fs.rmdir(root..'/lock');emit({ok=true,id=p.id})
+elseif cmd == 'status' then
+  local rows = {}
+  for name in fs.dir(history) or function() end do
+    if name:match('^%d+%.json$') then
+      local row = json.parse(fs.readfile(history..'/'..name) or '')
+      if row then rows[#rows+1] = row end
+    end
+  end
+  table.sort(rows,function(a,b) return (a.saved_at or 0) > (b.saved_at or 0) end)
+  emit({running=not not running(),status=(fs.readfile(root..'/status') or 'idle'):gsub('%s+$',''),events=events(root..'/events'),history=rows,
+    servers=json.parse(fs.readfile(root..'/servers.json') or ''),connection=json.parse(fs.readfile(root..'/connection.json') or '')})
+elseif cmd == 'clear-history' then
+  if running() or fs.stat(root..'/lock') then emit({error='请在测速结束后清除记录'}); os.exit(0) end
+  local removed=0
+  for name in fs.dir(history) or function() end do
+    if name:match('^%d+%.json$') then
+      if not fs.unlink(history..'/'..name) then emit({error='清除记录失败'}); os.exit(1) end
+      removed=removed+1
+    end
+  end
+  emit({ok=true,removed=removed})
+elseif cmd == 'finish' then
+  local rows = events(root..'/events')
+  local result
+  for _,e in ipairs(rows) do if e.type == 'result' then result=e end end
+  -- A successful exit alone is not a completed measurement. This second
+  -- boundary keeps an empty/truncated engine stream out of persistent history.
+  local function valid(v,positive)
+    return type(v)=='number' and v==v and v<math.huge and (positive and v>0 or not positive and v>=0)
+  end
+  local samples, phases = {}, {}
+  for _,e in ipairs(rows) do
+    if e.type=='sample' and (e.phase=='download' or e.phase=='upload') and valid(e.mbps,false) and valid(e.elapsed,true) then
+      samples[#samples+1]=e; phases[e.phase]=true
+    end
+  end
+  if not result or not valid(result.download_mbps,true) or not valid(result.upload_mbps,true) or
+    not valid(result.latency_ms,false) or not valid(result.jitter_ms,false) or not phases.download or not phases.upload then
+    emit({error='测速结果不完整'}); os.exit(1)
+  end
+  if result then
+    local connection=json.parse(fs.readfile(root..'/connection.json') or '') or {connection_mode='direct'}
+    result.connection_mode=connection.connection_mode
+    result.proxy_name=connection.proxy_name
+    fs.mkdir('/etc/netspeed'); fs.mkdir(history)
+    result.saved_at=os.time(); result.samples=samples
+    local tmp=history..'/.'..result.saved_at..'.tmp'
+    fs.writefile(tmp,json.stringify(result)); fs.rename(tmp,history..'/'..result.saved_at..'.json')
+    local files={}
+    for name in fs.dir(history) do if name:match('^%d+%.json$') then files[#files+1]=name end end
+    table.sort(files,function(a,b) return tonumber(a:match('^(%d+)')) < tonumber(b:match('^(%d+)')) end)
+    for i=1,#files-30 do fs.unlink(history..'/'..files[i]) end
+  end
+else emit({error='无效操作'}); os.exit(1) end

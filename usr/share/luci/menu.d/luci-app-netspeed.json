@@ -1,0 +1,1 @@
+{"admin/network/netspeed":{"title":"一键测速","order":95,"action":{"type":"view","path":"network/netspeed"},"depends":{"acl":["luci-app-netspeed"]}}}

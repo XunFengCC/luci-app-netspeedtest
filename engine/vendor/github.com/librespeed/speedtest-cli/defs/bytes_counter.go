@@ -1,0 +1,138 @@
+package defs
+
+import (
+	"fmt"
+	"io"
+	"math/rand/v2"
+	"sync/atomic"
+	"time"
+)
+
+// BytesCounter implements the io.Writer interface, for counting bytes being read/written in HTTP requests.
+// It is only ever plugged into an io.TeeReader, so the transfer itself is driven by the wrapped reader.
+type BytesCounter struct {
+	start      time.Time
+	total      atomic.Uint64
+	payload    []byte
+	mebi       bool
+	uploadSize int
+}
+
+func NewCounter() *BytesCounter {
+	return &BytesCounter{}
+}
+
+// Write implements io.Writer
+func (c *BytesCounter) Write(p []byte) (int, error) {
+	n := len(p)
+	c.AddBytes(uint64(n))
+	return n, nil
+}
+
+// AddBytes commits a successful transfer's payload bytes to the mature
+// LibreSpeed counter. Uploads call this only after a 2xx response confirms the
+// full request body was consumed by the application endpoint.
+func (c *BytesCounter) AddBytes(n uint64) { c.total.Add(n) }
+
+// SetBase sets the base for dividing bytes into megabyte or mebibyte
+func (c *BytesCounter) SetMebi(mebi bool) {
+	c.mebi = mebi
+}
+
+// SetUploadSize sets the size of payload being uploaded
+func (c *BytesCounter) SetUploadSize(uploadSize int) {
+	c.uploadSize = uploadSize * 1024
+}
+
+// AvgBytes returns the average bytes/second
+func (c *BytesCounter) AvgBytes() float64 {
+	return float64(c.total.Load()) / time.Since(c.start).Seconds()
+}
+
+// AvgMbps returns the average mbits/second
+func (c *BytesCounter) AvgMbps() float64 {
+	var base float64 = 125000
+	if c.mebi {
+		base = 131072
+	}
+	return c.AvgBytes() / base
+}
+
+// AvgHumanize returns the average bytes/kilobytes/megabytes/gigabytes (or bytes/kibibytes/mebibytes/gibibytes) per second
+func (c *BytesCounter) AvgHumanize() string {
+	val := c.AvgBytes()
+
+	var base float64 = 1000
+	if c.mebi {
+		base = 1024
+	}
+
+	if val < base {
+		return fmt.Sprintf("%.2f bytes/s", val)
+	} else if val/base < base {
+		return fmt.Sprintf("%.2f KB/s", val/base)
+	} else if val/base/base < base {
+		return fmt.Sprintf("%.2f MB/s", val/base/base)
+	} else {
+		return fmt.Sprintf("%.2f GB/s", val/base/base/base)
+	}
+}
+
+// Payload returns the pre-allocated random byte array for upload
+func (c *BytesCounter) Payload() []byte {
+	return c.payload
+}
+
+// GenerateBlob generates a random byte array of `uploadSize` in the `payload` field
+func (c *BytesCounter) GenerateBlob() {
+	c.payload = getRandomData(c.uploadSize)
+}
+
+// Start will set the `start` field to current time
+func (c *BytesCounter) Start() {
+	c.start = time.Now()
+}
+
+// Total returns the total bytes read/written
+func (c *BytesCounter) Total() uint64 {
+	return c.total.Load()
+}
+
+// CurrentSpeed returns the current bytes/second
+func (c *BytesCounter) CurrentSpeed() float64 {
+	return float64(c.total.Load()) / time.Since(c.start).Seconds()
+}
+
+// SeekWrapper is a wrapper around io.Reader to give it a noop io.Seeker interface
+type SeekWrapper struct {
+	io.Reader
+}
+
+// Seek implements the io.Seeker interface
+func (r *SeekWrapper) Seek(offset int64, whence int) (int64, error) {
+	return offset, nil
+}
+
+// getAvg returns the average value of an float64 array
+func getAvg(vals []float64) float64 {
+	var total float64
+	for _, v := range vals {
+		total += v
+	}
+
+	return total / float64(len(vals))
+}
+
+// getRandomData returns an `length` sized array of random bytes using fast PRNG
+func getRandomData(length int) []byte {
+	data := make([]byte, length)
+	// math/rand/v2 ChaCha8 generator is ~50x faster than crypto/rand for bulk data.
+	// We use the default source which is automatically seeded.
+	for i := 0; i < length; i += 8 {
+		val := rand.Uint64()
+		for j := 0; j < 8 && i+j < length; j++ {
+			data[i+j] = byte(val >> (j * 8))
+		}
+	}
+	return data
+}

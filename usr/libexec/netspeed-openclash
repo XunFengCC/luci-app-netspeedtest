@@ -1,0 +1,37 @@
+#!/usr/bin/lua
+-- Controller credentials stay in a transient root-only curl config, never
+-- argv, JSON output, persistent history, installation archives or logs.
+local fs=require 'nixio.fs'
+local nixio=require 'nixio'
+local json=require 'luci.jsonc'
+local sys=require 'luci.sys'
+local function quote(s) return "'"..s:gsub("'","'\\''").."'" end
+local function emit(v) io.write(json.stringify(v),'\n') end
+local function controller(path)
+  local port=tonumber(sys.exec('uci -q get openclash.config.cn_port'))
+  local secret=sys.exec('uci -q get openclash.config.dashboard_password'):gsub('[\r\n]+$','')
+  if not port or port<1 or port>65535 or secret=='' then return nil end
+  local dir='/tmp/netspeed/.controller-'..nixio.getpid()
+  if sys.call('umask 077; mkdir -m 700 '..quote(dir))~=0 then return nil end
+  local escaped=secret:gsub('\\','\\\\'):gsub('"','\\"'):gsub('[\r\n]','')
+  fs.writefile(dir..'/auth','header = "Authorization: Bearer '..escaped..'"\n')
+  local raw=sys.exec('curl -fsS --max-time 3 --noproxy "*" --config '..quote(dir..'/auth')..' '..quote('http://127.0.0.1:'..port..path)..' 2>/dev/null')
+  fs.unlink(dir..'/auth');fs.rmdir(dir)
+  return json.parse(raw or '')
+end
+local excluded={Selector=true,URLTest=true,Fallback=true,LoadBalance=true,Direct=true,Reject=true,RejectDrop=true,Pass=true,PassRule=true,Compatible=true}
+local function routes()
+  local all=controller('/providers/proxies')
+  if not all or type(all.providers)~='table' then return {available=false,nodes={}} end
+  local nodes,seen={},{}
+  for _,provider in pairs(all.providers) do
+    for _,proxy in ipairs(provider.proxies or {}) do
+      if type(proxy.name)=='string' and not excluded[proxy.type] and not seen[proxy.name] then
+        seen[proxy.name]=true;nodes[#nodes+1]={name=proxy.name,type=proxy.type}
+      end
+    end
+  end
+  table.sort(nodes,function(a,b)return a.name<b.name end)
+  return {available=#nodes>0,nodes=nodes}
+end
+if arg[1]=='routes' then emit(routes()) else emit({error='无效操作'});os.exit(1) end

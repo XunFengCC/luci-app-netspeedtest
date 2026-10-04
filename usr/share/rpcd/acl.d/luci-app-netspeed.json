@@ -1,0 +1,1 @@
+{"luci-app-netspeed":{"description":"Run one bounded direct speed test and read its records","read":{},"write":{"ubus":{"file":["exec"]},"file":{"/usr/libexec/netspeed":["exec"]}}}}
