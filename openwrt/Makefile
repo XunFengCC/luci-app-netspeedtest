@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netspeed
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=GPL-3.0-only LGPL-3.0-only
 PKG_LICENSE_FILES:=LICENSE engine/LGPL-3.0.txt
 PKG_MAINTAINER:=XunFengCC <50158744+XunFengCC@users.noreply.github.com>
@@ -65,7 +65,7 @@ define Package/netspeed-engine/install
 	$(INSTALL_DIR) $(1)/usr/bin $(1)/usr/share/netspeed/licenses
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/netspeed-engine $(1)/usr/bin/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/engine/NOTICE $(PKG_BUILD_DIR)/engine/*.txt $(PKG_BUILD_DIR)/LICENSE $(1)/usr/share/netspeed/
-	find $(PKG_BUILD_DIR)/engine/vendor -type f \( -iname 'license*' -o -iname 'copying*' -o -iname 'notice*' \) | while read p; do rel=$$$${p#$(PKG_BUILD_DIR)/engine/vendor/}; mkdir -p "$(1)/usr/share/netspeed/licenses/$$$${rel%/*}"; cp "$$$$p" "$(1)/usr/share/netspeed/licenses/$$$$rel"; done
+	find $(PKG_BUILD_DIR)/engine/vendor -type f \( -iname 'license*' -o -iname 'copying*' -o -iname 'notice*' -o -iname 'patents*' \) | while read p; do rel=$$$${p#$(PKG_BUILD_DIR)/engine/vendor/}; mkdir -p "$(1)/usr/share/netspeed/licenses/$$$${rel%/*}"; cp "$$$$p" "$(1)/usr/share/netspeed/licenses/$$$$rel"; done
 endef
 
 define Package/luci-app-netspeed/install
@@ -84,21 +84,42 @@ endef
 
 define Package/luci-app-netspeed/postinst
 #!/bin/sh
-[ -n "$$$$IPKG_INSTROOT" ] || { /etc/init.d/rpcd reload; rm -f /tmp/luci-indexcache; }
+[ -n "$$IPKG_INSTROOT" ] || { /etc/init.d/rpcd reload; rm -f /tmp/luci-indexcache; }
 exit 0
 endef
 
-define Package/luci-app-netspeed/prerm
+# APK executes preinst as pre-upgrade too; prerm is only for removal. Reject
+# replacement during a task's launch window rather than race executable/config
+# removal with a worker. Stale locks are reclaimed through the normal helper.
+define NetSpeed/preinst
 #!/bin/sh
-[ -n "$$$$IPKG_INSTROOT" ] || /usr/libexec/netspeed stop >/dev/null 2>&1
+if [ -z "$$IPKG_INSTROOT" ] && [ -d /tmp/netspeed/lock ]; then
+  echo 'Stop the NetSpeed task before installing or upgrading.' >&2
+  exit 1
+fi
 exit 0
 endef
 
-define Package/netspeed-openclash/prerm
+Package/luci-app-netspeed/preinst=$(NetSpeed/preinst)
+Package/netspeed-engine/preinst=$(NetSpeed/preinst)
+Package/netspeed-openclash/preinst=$(NetSpeed/preinst)
+
+define NetSpeed/prerm
 #!/bin/sh
-[ -n "$$$$IPKG_INSTROOT" ] || /usr/libexec/netspeed stop >/dev/null 2>&1
+if [ -z "$$IPKG_INSTROOT" ] && [ -x /usr/libexec/netspeed ]; then
+  /usr/libexec/netspeed stop >/dev/null 2>&1 || exit 1
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+    [ -d /tmp/netspeed/lock ] || break
+    sleep 0.1
+  done
+  [ ! -d /tmp/netspeed/lock ] || exit 1
+fi
 exit 0
 endef
+
+Package/luci-app-netspeed/prerm=$(NetSpeed/prerm)
+Package/netspeed-engine/prerm=$(NetSpeed/prerm)
+Package/netspeed-openclash/prerm=$(NetSpeed/prerm)
 
 $(eval $(call BuildPackage,netspeed-engine))
 $(eval $(call BuildPackage,luci-app-netspeed))

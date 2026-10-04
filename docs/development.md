@@ -12,6 +12,12 @@ Go 1.26+。改变 `vendor/defs` 适配必须更新 NOTICE 和测量测试；禁�
 
 `openwrt/Makefile` 是本仓库 SDK/feed 配方，用同一源码生成引擎、LuCI 和可选代理包。可作为本地 package 目录连接到 SDK。标准 Go host 编译依赖通过 OpenWrt feeds 提供；发布构建也可给定 `NETSPEED_PREBUILT_ENGINE`，先由固定 Go 工具链从本次源码编译，然后由 SDK 打包，不能替换为未知来源二进制。
 
+Linux 构建机须满足 SDK 的主机依赖，尤其是 GNU awk（mawk 缺少 asort 会让软件包扫描失败）、编译器与 ncurses 开发头文件。SDK 和 feeds 使用同一发行版的固定版本；公开安装包附 `BUILDINFO` 和 SHA256。
+
+发行打包使用 `NETSPEED_PACKAGE_ONLY=1 sh scripts/sdk-build.sh SDK_DIR /absolute/path/to/build/netspeed-engine`，运行依赖由设备源提供，不在此阶段从头编译 Ruby/Rust。完整固件集成使用普通构建目标。
+
+APK 架构必须核对设备 `/etc/apk/arch`；`apk --print-arch` 显示工具自身的编译架构，不能替代这个配置。实机两者分别为 `aarch64_cortex-a53`、`aarch64`，后者标签的候选包被模拟安装正确拒绝；最终使用官方 SDK 的原始 `aarch64_cortex-a53` 标签，不改架构配置。
+
 ## 官方软件源流程
 
 OpenWrt 用户在 LuCI 的软件包管理页面看到的是其配置软件源，不是统一审核制应用商店。独立 GitHub Releases 不会自动进入官方源。

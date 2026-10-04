@@ -35,3 +35,11 @@ Go fake-server、race、vet，以及代理 CONNECT/DNS/不回退测试通过。�
 尚未验证旧 fw3、所有 CPU/固件、所有 provider 类型、任意第三方代理链和持续全天线路稳定性。UID 65533 是插件隔离资源，安装前须确认未被其他服务使用。临时规则失效会让测试失败而不保存；它不能阻止所有其他插件自定义的 output 接管方式。
 
 私人凭据、家庭网络拓扑、原始截图、历史记录和现场恢复包不在公开仓库或发布包中。
+
+## 首次公开软件包验证
+
+2026-10-04，官方 OpenWrt 25.12.0 filogic SDK 生成三个 APK，包架构 `aarch64_cortex-a53`，原创工程版本 0.1.0-r2。同一来源的静态引擎由 Go 1.27.1 预编译，SDK 做最终 strip 和原生打包；没有在此打包阶段重建设备源提供的 Ruby/Rust 等运行依赖。
+
+实机执行测试包 r0 → r1 → 最终 r2 的安装升级，再完整卸载和重装 r2；包管理器的 pre-install/pre-upgrade/pre-deinstall 脚本实际执行。持久数据 15 个文件的 SHA256 前后一致，卸载后 owned helper/engine、锁、临时规则无残留，重装后控制器节点发现和 LuCI HTTP 正常。没有重复饱和测速：测量核心未变，本阶段验证的是分发与生命周期。
+
+打包检查曾发现两个问题并在发行前纠正：APK 的 `--print-arch` 是工具编译架构，必须读 `/etc/apk/arch`；Makefile 的脚本与安装 recipe 有不同变量展开层次，生成脚本中双 `$` 会成为 shell PID，而不是变量引用。最终用 SDK `apk adbdump` 逐项核对许可路径、架构与真实生命周期脚本。APK 升级不会执行 prerm，因此另外用 preinst/pre-upgrade 在测速锁存在时拒绝替换，防止启动窗口竞态。

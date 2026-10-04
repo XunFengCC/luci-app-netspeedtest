@@ -1,6 +1,6 @@
 # 安装、升级与卸载
 
-先查看 `/etc/openwrt_release` 和包管理器报告的软件包架构，不仅看 CPU 名称。同一 ARM64 内核可以使用不同包架构标签。
+先查看 `/etc/openwrt_release` 和 `/etc/apk/arch`（APK）或 `opkg print-architecture`（IPK），不仅看 CPU 名称。同一 ARM64 内核可以使用不同包架构标签；`apk --print-arch` 是工具编译架构，不等同于设备配置。
 
 OpenWrt 25.12 / APK：
 

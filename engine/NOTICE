@@ -1,5 +1,10 @@
 This engine includes and locally modifies the following third-party library:
 
+The original engine application and integration code are GPL-3.0-only, as
+provided in the repository's LICENSE (also installed with the binary). This
+permits recipients to modify and rebuild the application with a modified
+LibreSpeed library. The library and other dependencies retain their licenses.
+
   github.com/librespeed/speedtest-cli v1.0.14
   Upstream tag: v1.0.14
   Upstream commit: 42e5f76c90e64e04ab7079fd76d833dfe41805da
@@ -30,5 +35,6 @@ retest these narrowly scoped changes if upgrading.
 
 The engine application is linked with the modified LGPL library. Build it with
 `go build -mod=vendor`; the corresponding source is the complete `engine/`
-directory. Keep that source, LGPL-3.0.txt, GPL-3.0.txt, this notice and the
+directory plus the repository LICENSE and build instructions. Keep that source,
+LGPL-3.0.txt, GPL-3.0.txt, this notice and the
 relink permissions/terms with any binary distribution.
