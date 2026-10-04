@@ -1,4 +1,4 @@
-# NetSpeedTest · 网速测试
+# 网速测试（NetSpeedTest）
 
 **简体中文** | [English](README.en.md)
 
@@ -8,7 +8,7 @@ OpenWrt / ImmortalWrt 的 LuCI 测速插件：下载、上传、实时曲线、�
 
 ## 安装与适用版本
 
-安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeedtest/releases)。当前正式版为 **0.1.0**，软件包版本为 **0.1.0-r3**。尚未进入 OpenWrt 官方软件源。
+安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeedtest/releases)。当前正式版为 **1.0.0**，软件包版本为 **1.0.0-r1**。尚未进入 OpenWrt 官方软件源。
 
 首次公开版本提供 ARM64 / `aarch64_cortex-a53` / OpenWrt 25.12 系列的 APK，以现代 LuCI / fw4 为目标。已实测 Cudy TR3000、ImmortalWrt 25.12；纯 OpenWrt 尚无实机验收，其他架构和 24.10 IPK 尚未发行。旧 fw3/iptables 不支持。
 
@@ -25,9 +25,9 @@ cat /etc/apk/arch
 
 | 文件 | 用途 |
 | --- | --- |
-| `netspeed-engine-0.1.0-r3.apk` | 必需，静态 LibreSpeed 测量引擎 |
-| `luci-app-netspeed-0.1.0-r3.apk` | 必需，界面、直连控制和历史 |
-| `netspeed-openclash-0.1.0-r3.apk` | 可选，检测并测试 OpenClash 代理节点 |
+| `netspeed-engine-1.0.0-r1.apk` | 必需，静态 LibreSpeed 测量引擎 |
+| `luci-app-netspeed-1.0.0-r1.apk` | 必需，界面、直连控制和历史 |
+| `netspeed-openclash-1.0.0-r1.apk` | 可选，检测并测试 OpenClash 代理节点 |
 | `SHA256SUMS` | 安装包校验值 |
 
 依赖由路由器当前软件源提供。直连包需要 Lua 的 LuCI 兼容模块与 nftables；代理集成另需 curl、Ruby/YAML，以及已经运行的 OpenClash/Mihomo。本项目不分发 Mihomo。
@@ -46,13 +46,13 @@ cat /etc/apk/arch
 
 ```sh
 apk update
-apk add --allow-untrusted /tmp/netspeed-engine-0.1.0-r3.apk /tmp/luci-app-netspeed-0.1.0-r3.apk
+apk add --allow-untrusted /tmp/netspeed-engine-1.0.0-r1.apk /tmp/luci-app-netspeed-1.0.0-r1.apk
 ```
 
 需要代理测速时再执行：
 
 ```sh
-apk add --allow-untrusted /tmp/netspeed-openclash-0.1.0-r3.apk
+apk add --allow-untrusted /tmp/netspeed-openclash-1.0.0-r1.apk
 ```
 
 GitHub 发行包没有官方 OpenWrt 软件源签名；`--allow-untrusted` 仅用于已经下载并校验的本地包，无需设置为全局选项。安装不会重启网络或 OpenClash，首次安装会刷新 LuCI 执行权限。

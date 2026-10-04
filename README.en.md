@@ -1,4 +1,4 @@
-# NetSpeedTest · Internet Speed Test
+# NetSpeedTest
 
 [简体中文](README.md) | **English**
 
@@ -8,7 +8,7 @@ The default connection is direct. With the optional OpenClash integration, you c
 
 ## Installation and compatibility
 
-Download packages from [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeedtest/releases). The current stable release is **0.1.0**, with package version **0.1.0-r3**. The app is not yet in the official OpenWrt feeds.
+Download packages from [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeedtest/releases). The current stable release is **1.0.0**, with package version **1.0.0-r1**. The app is not yet in the official OpenWrt feeds.
 
 This release provides APKs for **OpenWrt 25.12-family firmware, ARM64, `aarch64_cortex-a53`, modern LuCI and fw4**. It has been tested on a Cudy TR3000 running ImmortalWrt 25.12. Stock OpenWrt has not yet been validated on hardware. Other architectures and OpenWrt 24.10 IPKs are not released; legacy fw3/iptables is unsupported.
 
@@ -25,9 +25,9 @@ Use `/etc/apk/arch`, rather than `apk --print-arch`, which reports the package m
 
 | File | Purpose |
 | --- | --- |
-| `netspeed-engine-0.1.0-r3.apk` | Required: static LibreSpeed measurement engine |
-| `luci-app-netspeed-0.1.0-r3.apk` | Required: interface, direct-test controller and history |
-| `netspeed-openclash-0.1.0-r3.apk` | Optional: discover and test OpenClash proxy nodes |
+| `netspeed-engine-1.0.0-r1.apk` | Required: static LibreSpeed measurement engine |
+| `luci-app-netspeed-1.0.0-r1.apk` | Required: interface, direct-test controller and history |
+| `netspeed-openclash-1.0.0-r1.apk` | Optional: discover and test OpenClash proxy nodes |
 | `SHA256SUMS` | Package checksums |
 
 Runtime dependencies come from your router's configured feeds. Direct tests require LuCI's Lua compatibility modules and nftables. Proxy integration additionally requires curl, Ruby/YAML and an existing running OpenClash/Mihomo installation. Mihomo is not bundled.
@@ -46,13 +46,13 @@ Upload the downloaded APKs to `/tmp/` on the router, verify their checksums, and
 
 ```sh
 apk update
-apk add --allow-untrusted /tmp/netspeed-engine-0.1.0-r3.apk /tmp/luci-app-netspeed-0.1.0-r3.apk
+apk add --allow-untrusted /tmp/netspeed-engine-1.0.0-r1.apk /tmp/luci-app-netspeed-1.0.0-r1.apk
 ```
 
 For proxy tests, also run:
 
 ```sh
-apk add --allow-untrusted /tmp/netspeed-openclash-0.1.0-r3.apk
+apk add --allow-untrusted /tmp/netspeed-openclash-1.0.0-r1.apk
 ```
 
 GitHub release packages are not signed by the official OpenWrt feeds. Use `--allow-untrusted` only for the local packages you have downloaded and verified; there is no need to enable it globally. Installation refreshes LuCI execution permissions without restarting networking or OpenClash.
