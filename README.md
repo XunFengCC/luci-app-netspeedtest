@@ -1,4 +1,4 @@
-# NetSpeed · 一键测速
+# NetSpeed Test · 网速测试
 
 OpenWrt / ImmortalWrt 的 LuCI 测速插件：下载、上传、实时曲线、延迟、抖动、自动或手动选择测速服务器，以及最近 30 次历史记录。
 
@@ -6,7 +6,7 @@ OpenWrt / ImmortalWrt 的 LuCI 测速插件：下载、上传、实时曲线、�
 
 ## 安装与适用版本
 
-安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeed/releases)。选择与你的 **OpenWrt 版本、CPU 软件包架构**一致的包。OpenWrt 25.12 使用 APK，24.10 使用 IPK；不能混用。尚未进入 OpenWrt 官方软件源。
+安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeed-test/releases)。选择与你的 **OpenWrt 版本、CPU 软件包架构**一致的包。OpenWrt 25.12 使用 APK，24.10 使用 IPK；不能混用。尚未进入 OpenWrt 官方软件源。
 
 首次公开版本提供 ARM64 / `aarch64_cortex-a53` / OpenWrt 25.12 系列的 APK，以现代 LuCI / fw4 为目标。已实测 Cudy TR3000、ImmortalWrt 25.12；纯 OpenWrt 尚无实机验收，其他架构和 24.10 IPK 尚未发行。旧 fw3/iptables 不支持。
 

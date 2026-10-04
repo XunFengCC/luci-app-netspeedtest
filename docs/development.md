@@ -24,6 +24,6 @@ OpenWrt 用户在 LuCI 的软件包管理页面看到的是其配置软件源，
 
 官方收录通常需要向 [openwrt/packages](https://github.com/openwrt/packages) 提交后端配方，向 [openwrt/luci](https://github.com/openwrt/luci) 提交 LuCI 应用；通过维护者审核后进入相应 feed。遵循 [packages CONTRIBUTING](https://github.com/openwrt/packages/blob/master/CONTRIBUTING.md) 与 [OpenWrt 创建软件包文档](https://openwrt.org/docs/guide-developer/packages)。
 
-当前先发行独立测试版，不宣称官方收录。上游提交前还需要：固定发行源码 URL/校验值、用官方 Go host toolchain 完整构建、核对 LuCI 国际化惯例和后端接口、验证纯 OpenWrt 实机安装升级卸载、确认 maintainer 和签署者信息。OpenClash 不是官方源依赖，因此可选集成不得成为直连包的强制依赖。
+当前已发行独立正式版，尚未官方收录。上游提交前还需要：固定发行源码 URL/校验值、用官方 Go host toolchain 完整构建、核对 LuCI 国际化惯例和后端接口、验证纯 OpenWrt 实机安装升级卸载、确认 maintainer 和签署者信息。OpenClash 不是官方源依赖，因此可选集成不得成为直连包的强制依赖。
 
 开源仓库是工程正本；私人的部署工具、网络诊断和恢复包在发布仓库之外维护。
