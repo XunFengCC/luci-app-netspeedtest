@@ -38,7 +38,7 @@ Go fake-server、race、vet，以及代理 CONNECT/DNS/不回退测试通过。�
 
 ## 首次公开软件包验证
 
-2026-10-04，官方 OpenWrt 25.12.0 filogic SDK 生成三个 APK，包架构 `aarch64_cortex-a53`，原创工程版本 0.1.0-r2。同一来源的静态引擎由 Go 1.27.1 预编译，SDK 做最终 strip 和原生打包；没有在此打包阶段重建设备源提供的 Ruby/Rust 等运行依赖。
+2026-10-04，官方 OpenWrt 25.12.0 filogic SDK 生成三个 APK，包架构 `aarch64_cortex-a53`，原创工程版本 0.1.0-r3。同一来源的静态引擎由 Go 1.27.1 预编译，SDK 做最终 strip 和原生打包；没有在此打包阶段重建设备源提供的 Ruby/Rust 等运行依赖。
 
 实机执行测试包 r0 → r1 → 最终 r2 的安装升级，再完整卸载和重装 r2；包管理器的 pre-install/pre-upgrade/pre-deinstall 脚本实际执行。持久数据 15 个文件的 SHA256 前后一致，卸载后 owned helper/engine、锁、临时规则无残留，重装后控制器节点发现和 LuCI HTTP 正常。没有重复饱和测速：测量核心未变，本阶段验证的是分发与生命周期。
 

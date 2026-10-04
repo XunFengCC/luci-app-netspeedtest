@@ -18,6 +18,8 @@
 
 LuCI 和 OpenClash/Mihomo 是设备上的运行依赖，不打进本项目安装包。翻译 LMO 由 LuCI po2lmo 格式生成，只包含本项目的翻译数据，不分发转换器。
 
+静态引擎还包含 Go 标准库/运行时，采用 BSD-3-Clause。构建工具链 Go 1.27.1 的原文许可和专利授权保存在 `engine/Go-LICENSE.txt`、`engine/Go-PATENTS.txt`，同样安装至 `/usr/share/netspeed`；工具链更新时核对这些文本。
+
 测速服务器目录只保存名称、位置和公开接口；不复制第三方站点代码。公网服务的可用性和使用规则可能变化。USTC 使用其公开正常 PoW 流程，不绕过验证；禁止 telemetry。不得在持续集成中对公共节点做饱和测速。
 
 首次许可核对：2026-10-04。依据为 [LGPL v3 原文](https://www.gnu.org/licenses/lgpl-3.0.html)、项目内保留的上游许可证，以及各 vendored 依赖的 LICENSE 文件。官方收录和以后的依赖更新仍须重新核对。

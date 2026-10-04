@@ -7,7 +7,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netspeed
 PKG_VERSION:=0.1.0
-PKG_RELEASE:=2
+PKG_RELEASE:=3
 PKG_LICENSE:=GPL-3.0-only LGPL-3.0-only
 PKG_LICENSE_FILES:=LICENSE engine/LGPL-3.0.txt
 PKG_MAINTAINER:=XunFengCC <50158744+XunFengCC@users.noreply.github.com>

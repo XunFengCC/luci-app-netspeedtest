@@ -16,6 +16,10 @@ LGPL-3.0.txt and GPL-3.0.txt. The unmodified vendored upstream LICENSE is
 retained at vendor/github.com/librespeed/speedtest-cli/LICENSE. Other vendored
 dependencies retain their upstream license files under vendor/.
 
+The statically incorporated Go standard library/runtime is BSD-3-Clause.
+Its license and patent grant are provided in Go-LICENSE.txt and Go-PATENTS.txt
+(from the Go 1.27.1 build toolchain), and accompany the installed binary.
+
 Local fork changes are limited to vendor/github.com/librespeed/speedtest-cli/defs:
 
   adapter.go       Context-aware transfer adapter, 500 ms progress callbacks,
