@@ -7,10 +7,10 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=netspeed
 PKG_VERSION:=1.0.0
-PKG_RELEASE:=1
+PKG_RELEASE:=2
 PKG_LICENSE:=GPL-3.0-only LGPL-3.0-only
 PKG_LICENSE_FILES:=LICENSE engine/LGPL-3.0.txt
-PKG_MAINTAINER:=XunFengCC <50158744+XunFengCC@users.noreply.github.com>
+PKG_MAINTAINER:=FengYinYH <FengYinYH@icloud.com>
 PKG_BUILD_PARALLEL:=1
 # Release CI precompiles this exact source with pinned Go; source feed builds
 # use OpenWrt's own Go host package and architecture mapping.
@@ -25,7 +25,7 @@ define Package/netspeed-engine
   SECTION:=net
   CATEGORY:=Network
   TITLE:=Bounded LibreSpeed measurement engine
-  URL:=https://github.com/XunFengCC/luci-app-netspeedtest
+  URL:=https://github.com/FengYinYH/luci-app-netspeedtest
   DEPENDS:=$(GO_ARCH_DEPENDS)
 endef
 
@@ -34,7 +34,7 @@ define Package/luci-app-netspeed
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=One-click speed test
-  URL:=https://github.com/XunFengCC/luci-app-netspeedtest
+  URL:=https://github.com/FengYinYH/luci-app-netspeedtest
   DEPENDS:=+netspeed-engine +luci-base +luci-compat +luci-lib-jsonc +luci-lib-nixio +lua +firewall4 +nftables-json
   PKGARCH:=all
 endef

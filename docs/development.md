@@ -16,6 +16,8 @@ Linux 构建机须满足 SDK 的主机依赖，尤其是 GNU awk（mawk 缺少 a
 
 发行打包使用 `NETSPEED_PACKAGE_ONLY=1 sh scripts/sdk-build.sh SDK_DIR /absolute/path/to/build/netspeed-engine`，运行依赖由设备源提供，不在此阶段从头编译 Ruby/Rust。完整固件集成使用普通构建目标。
 
+仅包维护者、项目 URL 等元数据变化时递增 `PKG_RELEASE`，使用独立的 `v<版本>-r<修订>` 标签发布同源的三个包，不移动既有标签或替换旧附件。例如 1.0.0-r2 同步公开作者身份与联系邮箱，不改变测量代码。已配置的 SDK 可直接使用上述脚本的 package-only make 目标，复用固定 feeds，避免在修订发行时刷新依赖。每次仍需核对 APK 版本、架构、维护者、URL、依赖和生命周期脚本，并附对应源码及校验值；已有实机验证不等于本次执行了设备升级验证。
+
 APK 架构必须核对设备 `/etc/apk/arch`；`apk --print-arch` 显示工具自身的编译架构，不能替代这个配置。实机两者分别为 `aarch64_cortex-a53`、`aarch64`，后者标签的候选包被模拟安装正确拒绝；最终使用官方 SDK 的原始 `aarch64_cortex-a53` 标签，不改架构配置。
 
 ## 官方软件源流程

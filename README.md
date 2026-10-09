@@ -8,7 +8,7 @@ OpenWrt / ImmortalWrt 的 LuCI 测速插件：下载、上传、实时曲线、�
 
 ## 安装与适用版本
 
-安装包发布在 [GitHub Releases](https://github.com/XunFengCC/luci-app-netspeedtest/releases)。当前正式版为 **1.0.0**，软件包版本为 **1.0.0-r1**。尚未进入 OpenWrt 官方软件源。
+安装包发布在 [GitHub Releases](https://github.com/FengYinYH/luci-app-netspeedtest/releases)。当前正式版为 **1.0.0**，软件包版本为 **1.0.0-r2**。尚未进入 OpenWrt 官方软件源。
 
 首次公开版本提供 ARM64 / `aarch64_cortex-a53` / OpenWrt 25.12 系列的 APK，以现代 LuCI / fw4 为目标。已实测 Cudy TR3000、ImmortalWrt 25.12；纯 OpenWrt 尚无实机验收，其他架构和 24.10 IPK 尚未发行。旧 fw3/iptables 不支持。
 
@@ -25,9 +25,9 @@ cat /etc/apk/arch
 
 | 文件 | 用途 |
 | --- | --- |
-| `netspeed-engine-1.0.0-r1.apk` | 必需，静态 LibreSpeed 测量引擎 |
-| `luci-app-netspeed-1.0.0-r1.apk` | 必需，界面、直连控制和历史 |
-| `netspeed-openclash-1.0.0-r1.apk` | 可选，检测并测试 OpenClash 代理节点 |
+| `netspeed-engine-1.0.0-r2.apk` | 必需，静态 LibreSpeed 测量引擎 |
+| `luci-app-netspeed-1.0.0-r2.apk` | 必需，界面、直连控制和历史 |
+| `netspeed-openclash-1.0.0-r2.apk` | 可选，检测并测试 OpenClash 代理节点 |
 | `SHA256SUMS` | 安装包校验值 |
 
 依赖由路由器当前软件源提供。直连包需要 Lua 的 LuCI 兼容模块与 nftables；代理集成另需 curl、Ruby/YAML，以及已经运行的 OpenClash/Mihomo。本项目不分发 Mihomo。
@@ -46,13 +46,13 @@ cat /etc/apk/arch
 
 ```sh
 apk update
-apk add --allow-untrusted /tmp/netspeed-engine-1.0.0-r1.apk /tmp/luci-app-netspeed-1.0.0-r1.apk
+apk add --allow-untrusted /tmp/netspeed-engine-1.0.0-r2.apk /tmp/luci-app-netspeed-1.0.0-r2.apk
 ```
 
 需要代理测速时再执行：
 
 ```sh
-apk add --allow-untrusted /tmp/netspeed-openclash-1.0.0-r1.apk
+apk add --allow-untrusted /tmp/netspeed-openclash-1.0.0-r2.apk
 ```
 
 GitHub 发行包没有官方 OpenWrt 软件源签名；`--allow-untrusted` 仅用于已经下载并校验的本地包，无需设置为全局选项。安装不会重启网络或 OpenClash，首次安装会刷新 LuCI 执行权限。
@@ -105,6 +105,10 @@ apk del netspeed-openclash luci-app-netspeed netspeed-engine
 不发送 LibreSpeed telemetry，不调用 getIP，不记录代理凭据。服务提供者仍可看到正常连接源地址。历史保存在路由器 `/etc/netspeed`，可在界面清空。
 
 延迟是 HTTP 往返时间，抖动沿用 LibreSpeed 的相邻 RTT 平滑差值。曲线展示从每个阶段开始累计的平均有效载荷速度。完整算法、限制及失败路径见 [工程说明](docs/engineering.md) 和 [引擎说明](engine/README.md)。
+
+## 作者与联系
+
+作者：风吟（FengYinYH）。联系邮箱：[FengYinYH@icloud.com](mailto:FengYinYH@icloud.com)。
 
 ## 开发与许可
 
